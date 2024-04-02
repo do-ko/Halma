@@ -193,7 +193,7 @@ def game(board_with_data):
         moves.fill((0, 0, 0))
         if possible_moves is not None:
             for move in possible_moves:
-                pygame.draw.rect(moves, (125, 125, 125), (move[1] * 45, move[0] * 45, 45, 45))
+                pygame.draw.rect(moves, (125, 125, 125), (move[1] * 45 + 5, move[0] * 45 + 5, 35, 35))
 
     board_update()
     running = True
