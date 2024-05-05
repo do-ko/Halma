@@ -3,21 +3,6 @@ import time
 import numpy
 import pandas
 import pygame
-from math import inf as infinity
-
-
-class Node:
-    def __init__(self, init_coordinates, final_coordinates, board):
-        self.init_coordinates = init_coordinates
-        self.final_coordinates = final_coordinates
-        self.board = board
-        self.children = []
-
-    def add_child(self, child):
-        self.children.append(child)
-
-    def __repr__(self):
-        return f"Node(init_coordinates={self.init_coordinates}, final_coords={self.final_coordinates}, board={self.board})"
 
 
 def init_board():
@@ -164,71 +149,17 @@ def check_game_end(board, player_one):
         return player_two_win
 
 
-def evaluate_by_distance(board):
-    """calculate a distance to nearest finish field for AI"""
-    return 1
+def min_max_algorithm(board, depth, player, starting_depth, alpha=float('-inf'), beta=float('inf'), path=None):
+    if path is None:
+        path = []  # Initialize path at the top call
 
-
-def get_all_moves(board, player):
-    for x in range(16):
-        for y in range(16):
-            if board[x][y] == player:
-                # found AI pawn
-                # x = h, y = w
-                print(board[x][y])
-                print(x, y)
-                possible_moves = get_possible_moves_ai(board, x, y, player)
-                print(possible_moves)
-                return possible_moves
-
-
-def min_max_algorithm(board, depth, player):
-    """MinMax algorithm - takes a board algorithm with current board state
-    and returns the best possible move for a player according to a cost function
-    board - current board state
-    depth - limiting number of moves to check
-    player - 1 or 2 ( MAX or MIN )"""
-    print(board)
-    # moves_tree = list()
-    root = Node(None, None, board)
-    while depth:
-        for x in range(16):
-            for y in range(16):
-                if board[x][y] == player:
-                    # found AI pawn
-                    # x = h, y = w
-                    print(board[x][y])
-                    print(x, y)
-                    possible_moves = get_possible_moves_ai(board, x, y, player)
-                    print(possible_moves)
-                    # moves_tree.append([[x, y], possible_moves])
-                    for move in possible_moves:
-                        new_board = [row[:] for row in board]  # Create a copy of the board
-                        new_board[x][y] = 0  # Remove the piece from its original position
-                        new_board[move[0]][
-                            move[1]] = player  # Move the piece to the new position (2 cuz ai player is 2)
-                        move1 = Node([x, y], move, new_board)
-                        root.add_child(move1)
-
-    if player == 2:
-        player = 1
-    else:
-        player = 2
-    depth -= 1
-
-    # print(moves_tree)
-    # Traverse the tree starting from the root
-    # dfs(root)
-
-
-def min_max_algorithm_v2(board, depth, player, starting_depth):
     if depth == 0:
         # return evaluate(board)  # Assume evaluate is a function you will define to score the board.
-        print("over")
-        return 1
+        value = rapid_strategy_evaluate(board, player)
+        return value, path
 
-    best_move = None
     best_board = None
+    best_path = []
     if player == 2:
         max_evaluation = float('-inf')
         for x in range(16):
@@ -239,12 +170,16 @@ def min_max_algorithm_v2(board, depth, player, starting_depth):
                         new_board = [row[:] for row in board]
                         new_board[x][y] = 0
                         new_board[move[0]][move[1]] = player
-                        evaluation = min_max_algorithm_v2(new_board, depth - 1, 1, starting_depth)
+                        new_path = path + [[x, y], [move[0], move[1]]]
+                        evaluation, current_path = min_max_algorithm(new_board, depth - 1, 1, starting_depth, alpha, beta, new_path)
                         if evaluation > max_evaluation:
                             max_evaluation = evaluation
-                            best_move = move
                             best_board = new_board
-        return max_evaluation if depth != starting_depth else best_board
+                            best_path = current_path
+                        alpha = max(alpha, evaluation)
+                        if beta <= alpha:
+                            break
+        return (max_evaluation, best_path) if depth != starting_depth else (best_board, best_path)
     else:
         min_evaluation = float('inf')
         for x in range(16):
@@ -255,34 +190,56 @@ def min_max_algorithm_v2(board, depth, player, starting_depth):
                         new_board = [row[:] for row in board]
                         new_board[x][y] = 0
                         new_board[move[0]][move[1]] = player
-                        evaluation = min_max_algorithm_v2(new_board, depth - 1, 2, starting_depth)
+                        new_path = path + [[x, y], [move[0], move[1]]]
+                        evaluation, current_path = min_max_algorithm(new_board, depth - 1, 2, starting_depth, alpha, beta, new_path)
                         if evaluation < min_evaluation:
                             min_evaluation = evaluation
-                            best_move = move
                             best_board = new_board
-        return min_evaluation if depth != starting_depth else best_board
+                            best_path = current_path
+                        beta = min(beta, evaluation)
+                        if beta <= alpha:
+                            break
+        return (min_evaluation, best_path) if depth != starting_depth else (best_board, best_path)
 
 
-def dfs(node):
-    print(node)  # Process the node
-    for child in node.children:
-        dfs(child)  # Recursively visit children
+def rapid_strategy_evaluate(board, opponent):
+    #  in this approach computer only cares about its distance to the goal
+    player = 3 - opponent
+    goal_coordinates = [0, 0] if player == 2 else [15, 15]
+    total_distance = 0
+
+    for x in range(16):
+        for y in range(16):
+            if board[x][y] == player:
+                distance = manhattan_distance(x, y, goal_coordinates[0], goal_coordinates[1])
+                total_distance += distance
+
+    # using 570 as the distance value should never be higher than that
+    return 570 - total_distance
+
+
+def manhattan_distance(x1, y1, x2, y2):
+    return abs(x1 - x2) + abs(y1 - y2)
 
 
 def get_possible_moves_ai(board, coordinate_x, coordinate_y, player, jumped_coordinates=[]):
     possible_jumps = []
 
     if not jumped_coordinates:  # First move, consider only regular moves
+        jumped_coordinates = jumped_coordinates + [[coordinate_x, coordinate_y]]
         possible_moves = get_possible_moves(board, coordinate_x, coordinate_y)
         for move in possible_moves:
             new_x, new_y = move
-            new_board = [row[:] for row in board]  # Create a copy of the board
-            new_board[coordinate_x][coordinate_y] = 0  # Remove the piece from its original position
-            new_board[new_x][new_y] = player  # Move the piece to the new position (2 cuz ai player is 2)
-            further_jumps = get_possible_moves_ai(new_board, new_x, new_y, player,
+            if abs(coordinate_x - new_x) == 2 or abs(coordinate_y - new_y == 2):
+                new_board = [row[:] for row in board]  # Create a copy of the board
+                new_board[coordinate_x][coordinate_y] = 0  # Remove the piece from its original position
+                new_board[new_x][new_y] = player  # Move the piece to the new position (2 cuz ai player is 2)
+                further_jumps = get_possible_moves_ai(new_board, new_x, new_y, player,
                                                   jumped_coordinates + [[new_x, new_y]])
-            if further_jumps:
-                possible_jumps.extend(further_jumps)
+                if further_jumps:
+                    possible_jumps.extend(further_jumps)
+                else:
+                    possible_jumps.append([new_x, new_y])
             else:
                 possible_jumps.append([new_x, new_y])
     else:  # Subsequent moves, consider only jump moves
@@ -319,6 +276,8 @@ def game(board_with_data):
     moves.set_colorkey((0, 0, 0))
     over_font = pygame.font.Font('freesansbold.ttf', 82)
     over_text = over_font.render("GAME OVER", True, (0, 0, 0))
+    past_move = None
+    final_position = None
 
     # draw the board
     def board_update():
@@ -342,6 +301,11 @@ def game(board_with_data):
                         pygame.draw.rect(board, (255, 206, 158), (x * 45, y * 45, 45, 45))
                 color_swap = not color_swap
             color_swap = not color_swap
+
+        if past_move:
+            pygame.draw.rect(board, (172, 83, 83), (past_move[1] * 45, past_move[0] * 45, 45, 45))
+        if final_position:
+            pygame.draw.rect(board, (153, 102, 102), (final_position[1] * 45, final_position[0] * 45, 45, 45))
 
         for x in range(16):
             for y in range(16):
@@ -386,6 +350,8 @@ def game(board_with_data):
                     elif possible_move_coordinates is not None and [h,
                                                                     w] in possible_move_coordinates and turn_player_one:
                         # handles move confirmation for player one and possibly forces jumps
+                        past_move = None
+                        final_position = None
                         print("move")
                         print("prev_h = ", prev_h)
                         print("prev_w = ", prev_w)
@@ -433,9 +399,11 @@ def game(board_with_data):
                             update_possible_moves()
             elif not turn_player_one:
                 # handles AI turn
-                # step 1 : call minmax algorithm - analyze all possible moves for each pawns
-                #  get current board status
-                board_with_data = min_max_algorithm_v2(board_with_data, 3, 2, 3)
+                # board_with_data_old = board_with_data
+                board_with_data, path = min_max_algorithm(board_with_data, 3, 2, 3)
+                print(path)
+                past_move = path[0]
+                final_position = path[1]
                 board_update()
                 turn_player_one = not turn_player_one
 
