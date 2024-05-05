@@ -364,7 +364,7 @@ def game(board_with_data):
                         print(prev_h - h)
                         print(prev_w - w)
 
-                        if abs(prev_h - h) == 2 or abs(prev_w - w == 2):
+                        if abs(prev_h - h) == 2 or abs(prev_w - w) == 2:
                             jumped_coordinates.append(get_jumped_coordinates(prev_h, prev_w, h, w))
                             possible_move_coordinates = get_possible_jumps(board_with_data, h, w, jumped_coordinates)
                             if len(possible_move_coordinates) != 0:
