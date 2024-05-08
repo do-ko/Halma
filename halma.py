@@ -171,7 +171,8 @@ def min_max_algorithm(board, depth, player, starting_depth, alpha=float('-inf'),
                         new_board[x][y] = 0
                         new_board[move[0]][move[1]] = player
                         new_path = path + [[x, y], [move[0], move[1]]]
-                        evaluation, current_path = min_max_algorithm(new_board, depth - 1, 1, starting_depth, alpha, beta, new_path)
+                        evaluation, current_path = min_max_algorithm(new_board, depth - 1, 1, starting_depth, alpha,
+                                                                     beta, new_path)
                         if evaluation > max_evaluation:
                             max_evaluation = evaluation
                             best_board = new_board
@@ -191,7 +192,8 @@ def min_max_algorithm(board, depth, player, starting_depth, alpha=float('-inf'),
                         new_board[x][y] = 0
                         new_board[move[0]][move[1]] = player
                         new_path = path + [[x, y], [move[0], move[1]]]
-                        evaluation, current_path = min_max_algorithm(new_board, depth - 1, 2, starting_depth, alpha, beta, new_path)
+                        evaluation, current_path = min_max_algorithm(new_board, depth - 1, 2, starting_depth, alpha,
+                                                                     beta, new_path)
                         if evaluation < min_evaluation:
                             min_evaluation = evaluation
                             best_board = new_board
@@ -203,7 +205,6 @@ def min_max_algorithm(board, depth, player, starting_depth, alpha=float('-inf'),
 
 
 def rapid_strategy_evaluate(board, opponent):
-    #  in this approach computer only cares about its distance to the goal
     player = 3 - opponent
     goal_coordinates = [0, 0] if player == 2 else [15, 15]
     total_distance = 0
@@ -216,6 +217,54 @@ def rapid_strategy_evaluate(board, opponent):
 
     # using 570 as the distance value should never be higher than that
     return 570 - total_distance
+
+
+def congestion_strategy_evaluate(board, opponent):
+    # number of pieces clustered implies better movement available (more jumps)
+    player = 3 - opponent
+    adjacent_count = 0
+    directions = [
+        (1, 0), (-1, 0), (0, 1), (0, -1),  # Horizontal and vertical
+        (1, 1), (1, -1), (-1, 1), (-1, -1)  # Diagonal
+    ]
+    for x in range(16):
+        for y in range(16):
+            if board[x][y] == player:
+                for dx, dy in directions:
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < 16 and 0 <= ny < 16 and board[nx][ny] != 0:
+                        adjacent_count += 1
+    return adjacent_count
+
+
+def center_strategy_evaluate(board, opponent):
+    player = 3 - opponent
+    goal_coordinates = [0, 0] if player == 2 else [15, 15]
+
+    total_distance_eval = rapid_strategy_evaluate(board, opponent)
+    center_score = center_control(board, player, goal_coordinates)
+
+    # Combine distance and center scores
+    score = total_distance_eval * 1.5 + center_score * 0.5
+
+    return score
+
+
+def center_control(board, player, goal):
+    center_score = 0
+    max_distance = max(goal[0], goal[1])
+    center_x, center_y = len(board) // 2, len(board[0]) // 2
+    range_x = len(board) // 4
+    range_y = len(board[0]) // 4
+
+    for x in range(center_x - range_x, center_x + range_x):
+        for y in range(center_y - range_y, center_y + range_y):
+            if board[x][y] == player:
+                # Decrease score contribution as pieces move closer to goal
+                distance_to_goal = abs(goal[0] - x) + abs(goal[1] - y)
+                center_score += max_distance - distance_to_goal
+
+    return center_score
 
 
 def manhattan_distance(x1, y1, x2, y2):
@@ -235,7 +284,7 @@ def get_possible_moves_ai(board, coordinate_x, coordinate_y, player, jumped_coor
                 new_board[coordinate_x][coordinate_y] = 0  # Remove the piece from its original position
                 new_board[new_x][new_y] = player  # Move the piece to the new position (2 cuz ai player is 2)
                 further_jumps = get_possible_moves_ai(new_board, new_x, new_y, player,
-                                                  jumped_coordinates + [[new_x, new_y]])
+                                                      jumped_coordinates + [[new_x, new_y]])
                 if further_jumps:
                     possible_jumps.extend(further_jumps)
                 else:
